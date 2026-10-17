@@ -41,22 +41,22 @@ jobs:
                   node-version: '20'
 
             - name: Shader embed matches the Android assets
-              run: node web/tools/sync-shaders.mjs --check
+              run: node tools/sync-shaders.mjs --check
 
             - name: Logic tests (state machine, palettes, gestures, params)
-              run: node web/tools/test.mjs
+              run: node tools/test.mjs
 
-            - name: Build web/dist
-              run: node web/tools/build.mjs --clean
+            - name: Build dist
+              run: node tools/build.mjs --clean
 
             - name: Headless WebGL smoke test (GLSL compile + two-pass render)
-              run: node web/tools/smoke.mjs --require-browser
+              run: node tools/smoke.mjs --require-browser
 
             - name: Upload the built site (downloadable artifact)
               uses: actions/upload-artifact@v4
               with:
                   name: sirisphere-web
-                  path: web/dist
+                  path: dist
                   if-no-files-found: error
 
             - name: Configure GitHub Pages
@@ -69,7 +69,7 @@ jobs:
               if: github.event_name != 'pull_request'
               uses: actions/upload-pages-artifact@v3
               with:
-                  path: web/dist
+                  path: dist
 
     deploy:
         name: deploy · GitHub Pages

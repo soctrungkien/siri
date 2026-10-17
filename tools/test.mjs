@@ -3,7 +3,7 @@
  * test — runs the logic tests of the web port in node, using the very same scripts the browser
  * loads (read from the <script> tags of web/index.html), plus the shader embed.
  *
- *   node web/tools/test.mjs
+ *   node tools/test.mjs   (monorepo: node web/tools/test.mjs)
  *
  * The GL parts need a GPU, so they are not covered here; everything that is pure logic
  * (state machine, palettes, params, helpers) is exercised exactly as in tools/jvmtest.

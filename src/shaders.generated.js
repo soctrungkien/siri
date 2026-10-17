@@ -1,9 +1,9 @@
 /*!
  * SiriSphere — web port: shader sources.
  *
- * AUTO-GENERATED — DO NOT EDIT. Run `node web/tools/sync-shaders.mjs` after changing
- * siri-sphere/src/main/assets/siri_sphere/*.{vert,frag}. WebGL2 speaks GLSL ES 3.00, so the
- * Android shaders are embedded verbatim.
+ * AUTO-GENERATED — DO NOT EDIT. Run `node tools/sync-shaders.mjs` after changing
+ * siri-sphere/src/main/assets/siri_sphere/*.{vert,frag} (inside the SiriSphere monorepo).
+ * WebGL2 speaks GLSL ES 3.00, so the Android shaders are embedded verbatim.
  *
  * shaders: sha256:b78c789c6e17c9ae
  */

@@ -2,9 +2,9 @@
 /**
  * smoke — real-GPU (or SwiftShader) check of the built bundle in a headless browser.
  *
- *   node web/tools/build.mjs && node web/tools/smoke.mjs
+ *   node tools/build.mjs && node tools/smoke.mjs
  *
- * It serves web/dist, loads /smoke.html in Chrome/Edge/Chromium and parses the machine readable
+ * It serves dist/, loads /smoke.html in Chrome/Edge/Chromium and parses the machine readable
  * first line of the page (<pre id="smoke">):
  *
  *   SMOKE: OK    -> exit 0
@@ -21,9 +21,11 @@ import { join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { createStaticServer } from './static-server.mjs';
+import { MONOREPO } from './sync-shaders.mjs';
 
 const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(WEB_DIR, 'dist');
+const P = MONOREPO ? 'web/' : '';      // log-message prefix (monorepo layout vs standalone repo)
 const args = process.argv.slice(2);
 const requireBrowser = args.includes('--require-browser');
 const keepHtml = args.includes('--keep-html');
@@ -94,7 +96,7 @@ function decode(html) {
 }
 
 if (!existsSync(join(DIST, 'smoke.html'))) {
-    console.error('FAIL  web/dist/smoke.html is missing — run: node web/tools/build.mjs');
+    console.error(`FAIL  ${P}dist/smoke.html is missing — run: node ${P}tools/build.mjs`);
     process.exit(1);
 }
 
@@ -135,5 +137,5 @@ if (keepHtml) console.log('\n--- dom dump ---\n' + dom);
 
 const details = text.split('\n').filter(l => l.startsWith('FAIL') || l.startsWith('note'));
 const tail = details.length ? '  (' + details[0].trim() + ')' : '';
-console.log(`\n${verdict === 'OK' ? 'PASS' : verdict}  headless smoke test of web/dist — shaders + two-pass render${tail}`);
+console.log(`\n${verdict === 'OK' ? 'PASS' : verdict}  headless smoke test of ${P}dist — shaders + two-pass render${tail}`);
 process.exit(verdict === 'FAIL' ? 1 : 0);

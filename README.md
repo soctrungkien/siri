@@ -36,13 +36,16 @@ web/
 
 ## Chạy thử
 
+> Lệnh dưới đây chạy từ thư mục gốc của repo này (`node tools/...`).
+> Nếu thư mục `web/` nằm trong SiriSphere monorepo (cạnh `siri-sphere/`), thêm tiền tố `web/`: `node web/tools/...`.
+
 ```sh
-# 1) xem ngay (dev): mở trực tiếp web/index.html, hoặc nên dùng server để demo mic hoạt động
-node web/tools/serve.mjs                 # http://localhost:8123
+# 1) xem ngay (dev): mở trực tiếp index.html, hoặc nên dùng server để demo mic hoạt động
+node tools/serve.mjs                 # http://localhost:8123
 
 # 2) bản đã build (giống hệt bản deploy)
-node web/tools/build.mjs --clean
-node web/tools/serve.mjs --dist          # http://localhost:8123
+node tools/build.mjs --clean
+node tools/serve.mjs --dist          # http://localhost:8123
 ```
 
 Trang demo có: 5 nút trạng thái, 6 bảng màu, thanh âm lượng + **mic thật**, con trượt
@@ -109,13 +112,13 @@ sphere.dispose();                    // khi gỡ trang
 Không cần cài gì (node ≥ 18, không dependency):
 
 ```sh
-node web/tools/sync-shaders.mjs        # đồng bộ shader từ module Android (+ --check cho CI)
-node web/tools/test.mjs                # 46 test logic — không cần GPU
-node web/tools/build.mjs --clean       # -> web/dist/ (index.html + sirisphere.js + styles.css + assets)
-node web/tools/smoke.mjs               # Chrome/Edge headless: biên dịch GLSL + đọc pixel 2 pass
+node tools/sync-shaders.mjs            # kiểm tra/sync shader — monorepo: sync từ module Android (+ --check cho CI)
+node tools/test.mjs                    # 46 test logic — không cần GPU
+node tools/build.mjs --clean           # -> dist/ (index.html + sirisphere.js + styles.css + assets)
+node tools/smoke.mjs                   # Chrome/Edge headless: biên dịch GLSL + đọc pixel 2 pass
 ```
 
-`web/tools/smoke.mjs` là bài test đáng giá nhất: nó **biên dịch thật 2 chương trình GLSL** và
+`tools/smoke.mjs` là bài test đáng giá nhất: nó **biên dịch thật 2 chương trình GLSL** và
 kiểm tra pixel (FBO sáng, thân cầu đục ở tâm, ánh sáng ribbon nhìn thấy, chuyển đảo mở/thu đúng,
 `onHidden` bắn đúng 1 lần, `dispose()` giải phóng GL). Vì shader dùng chung nguyên văn với module
 Android, đây cũng là bằng chứng GLSL của module Android **biên dịch được** (kiểm trên ANGLE/D3D11;
@@ -123,12 +126,14 @@ chưa kiểm trên driver GLES của máy Android thật).
 
 ## GitHub Action
 
-`.github/workflows/web.yml` chạy khi push vào `main`/tag `v*` hoặc PR chạm `web/**` hay shader:
+`.github/workflows/web.yml` chạy khi push vào `main`/tag `v*`, hoặc tạo PR, hoặc chạy tay
+(Actions → Run workflow):
 
-1. `sync-shaders.mjs --check` — shader web có khớp assets Android không (chống lệch).
-2. `test.mjs` — 46 test logic.
-3. `build.mjs --clean` — sinh `web/dist`.
-4. `smoke.mjs --require-browser` — smoke test WebGL thật(có GPU) trên Chrome headless của runner.
+1. `tools/sync-shaders.mjs --check` — file shader nhúng nguyên vẹn và khớp hash (repo độc lập:
+   tự kiểm toàn vẹn; trong monorepo: so với assets của module Android, chống lệch).
+2. `tools/test.mjs` — 46 test logic.
+3. `tools/build.mjs --clean` — sinh `dist/`.
+4. `tools/smoke.mjs --require-browser` — smoke test WebGL thật (có GPU) trên Chrome headless của runner.
 5. Upload artifact `sirisphere-web` (tải về được) **và** deploy GitHub Pages.
 
 Kết quả: mỗi push là một trang web mới. Lần đầu cần bật Pages: **Settings → Pages → Source:
@@ -143,9 +148,9 @@ trực tiếp bằng `file://` cũng chạy (chỉ mic là cần https/localhost
 
 | Việc | Kết quả |
 |---|---|
-| `node web/tools/test.mjs` | **46/46 PASS** (34 test port từ JVM + 12 test web) |
-| `node web/tools/smoke.mjs` | **SMOKE: OK 15/15** trên Chrome headless 1400×900, ANGLE (NVIDIA Quadro P400, D3D11), target RGBA16F |
-| Trang demo (`web/dist`) | chạy trong Chrome headless: đảo → cầu mờ dần đúng, ribbon sáng, khúc xạ nền nhìn thấy ở nửa dưới, không lỗi console |
+| `node tools/test.mjs` | **46/46 PASS** (34 test port từ JVM + 12 test web) |
+| `node tools/smoke.mjs` | **SMOKE: OK 15/15** trên Chrome headless 1400×900, ANGLE (NVIDIA Quadro P400, D3D11), target RGBA16F |
+| Trang demo (`dist/`) | chạy trong Chrome headless: đảo → cầu mờ dần đúng, ribbon sáng, khúc xạ nền nhìn thấy ở nửa dưới, không lỗi console |
 | Nhật ký GL | không có `glGetError` khác 0 trong suốt 150 frame + biên dịch shader |
 
 Chưa kiểm: Safari/iOS (cần `EXT_color_buffer_float`; nếu thiếu sẽ tự rơi về RGBA8 + nén LDR),
