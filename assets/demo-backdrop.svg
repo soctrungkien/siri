@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-label="Demo backdrop">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1830"/>
+      <stop offset="0.55" stop-color="#0b0b12"/>
+      <stop offset="1" stop-color="#20102a"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#198cff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#198cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#6adcc0" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#6adcc0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g3" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a94dff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#a94dff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g4" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff6c53" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ff6c53" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="800" fill="url(#base)"/>
+  <g>
+    <circle cx="330" cy="470" r="420" fill="url(#g1)"/>
+    <circle cx="980" cy="230" r="360" fill="url(#g2)"/>
+    <circle cx="700" cy="700" r="380" fill="url(#g3)"/>
+    <circle cx="1120" cy="640" r="260" fill="url(#g4)"/>
+  </g>
+
+  <g stroke="#ffffff" stroke-opacity="0.06" stroke-width="1">
+    <path d="M0 160H1280M0 320H1280M0 480H1280M0 640H1280"/>
+    <path d="M160 0V800M320 0V800M480 0V800M640 0V800M800 0V800M960 0V800M1120 0V800"/>
+  </g>
+
+  <g fill="#0a0a10" fill-opacity="0.72" stroke="#ffffff" stroke-opacity="0.12" stroke-width="2">
+    <rect x="90" y="120" width="520" height="110" rx="18"/>
+    <rect x="90" y="270" width="430" height="110" rx="18"/>
+    <rect x="90" y="420" width="600" height="110" rx="18"/>
+    <rect x="740" y="560" width="450" height="150" rx="20"/>
+  </g>
+
+  <g fill="#ffffff" fill-opacity="0.28">
+    <rect x="120" y="165" width="240" height="9" rx="4.5"/>
+    <rect x="120" y="192" width="150" height="9" rx="4.5"/>
+    <rect x="120" y="315" width="200" height="9" rx="4.5"/>
+    <rect x="120" y="465" width="300" height="9" rx="4.5"/>
+    <rect x="120" y="492" width="180" height="9" rx="4.5"/>
+    <rect x="780" y="600" width="260" height="10" rx="5"/>
+    <rect x="780" y="630" width="180" height="10" rx="5"/>
+    <rect x="780" y="660" width="220" height="10" rx="5"/>
+  </g>
+</svg>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>SiriSphere — web demo (WebGL2)</title>
+<meta name="description" content="Siri-style AI sphere (island pill → glass orb) rendered with the two-pass WebGL2 port of the SiriSphere Android module.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+    <main class="stage" id="stage">
+        <canvas id="sphere-canvas"></canvas>
+
+        <div class="statusbar" aria-hidden="true">
+            <span id="clock">9:41</span>
+            <span class="status-icons">••••◦&nbsp;&nbsp;5G&nbsp;&nbsp;▮</span>
+        </div>
+
+        <div class="island" id="island" role="button" tabindex="0" aria-label="Trigger Siri">
+            <span class="island-label" id="islandLabel">Siri</span>
+        </div>
+
+        <div class="badge" id="badge">idle</div>
+        <p class="hint">Double-tap or long-press the island · or drive it from the panel</p>
+        <div class="fallback" id="fallback" hidden>
+            <h2>WebGL2 is not available</h2>
+            <p>The sphere needs WebGL2. Try a recent Chrome, Edge, Firefox or Safari build with hardware acceleration enabled.</p>
+        </div>
+    </main>
+
+    <aside class="panel">
+        <header class="panel-head">
+            <h1>SiriSphere <small>web <span id="version">1.0.0</span></small></h1>
+            <p class="sub">Two-pass WebGL2 port of the Android module — same GLSL, same uniforms, same state machine.</p>
+        </header>
+
+        <section class="group">
+            <h2>Assistant state</h2>
+            <div class="states" id="states">
+                <button type="button" data-state="idle" class="on">Idle</button>
+                <button type="button" data-state="listening">Listening</button>
+                <button type="button" data-state="processing">Processing</button>
+                <button type="button" data-state="speaking">Speaking</button>
+                <button type="button" data-state="error" class="danger">Error</button>
+            </div>
+            <div class="row">
+                <button type="button" id="toggle" class="wide">Hide sphere</button>
+                <button type="button" id="playScript" class="wide">Play scripted turn</button>
+            </div>
+            <p class="note">The sphere only reacts to real audio: use the mic below (or your own signal).
+                Without one it falls back to the per-state floor — it never invents levels.</p>
+        </section>
+
+        <section class="group">
+            <h2>Audio (real signal)</h2>
+            <label class="slider">
+                <span>level <output id="audioOut">0%</output></span>
+                <input type="range" id="audio" min="0" max="100" value="0">
+            </label>
+            <div class="row">
+                <button type="button" id="mic" class="wide">Enable microphone</button>
+            </div>
+        </section>
+
+        <section class="group">
+            <h2>Look</h2>
+            <label class="slider"><span>palette</span>
+                <select id="palette">
+                    <option value="rainbow">rainbow</option>
+                    <option value="warm">warm</option>
+                    <option value="cool">cool</option>
+                    <option value="aurora">aurora</option>
+                    <option value="magenta">magenta</option>
+                    <option value="ice">ice</option>
+                </select>
+            </label>
+            <label class="slider"><span>sphere ↔ capsule <output id="orbModeOut">100%</output></span>
+                <input type="range" id="orbMode" min="0" max="100" value="100"></label>
+            <label class="slider"><span>size <output id="orbSizeOut">90%</output></span>
+                <input type="range" id="orbSize" min="20" max="140" value="90"></label>
+            <label class="slider"><span>intensity <output id="intensityOut">0.38</output></span>
+                <input type="range" id="intensity" min="0" max="200" value="38"></label>
+            <label class="slider"><span>wave speed <output id="speedOut">1.0×</output></span>
+                <input type="range" id="speed" min="0" max="300" value="100"></label>
+            <label class="slider"><span>waviness <output id="wavinessOut">1.0×</output></span>
+                <input type="range" id="waviness" min="20" max="400" value="100"></label>
+            <label class="slider"><span>amplitude <output id="amplitudeOut">1.0×</output></span>
+                <input type="range" id="amplitude" min="0" max="300" value="100"></label>
+        </section>
+
+        <section class="group">
+            <h2>Island hand-off</h2>
+            <label class="check"><input type="checkbox" id="islandTransition"> grow the black pill into the orb (0.6 s)</label>
+            <p class="note">The DOM pill above the sphere is the island; its rect is handed to
+                <code>setIslandPill()</code>, so the shader starts exactly where the island is and
+                <code>hide()</code> collapses back into it.</p>
+        </section>
+
+        <section class="group">
+            <h2>Backdrop refraction</h2>
+            <label class="slider"><span>source</span>
+                <select id="backdrop">
+                    <option value="none">none (page shows through)</option>
+                    <option value="live" selected>live canvas (refraction on)</option>
+                    <option value="still">still canvas (refraction on)</option>
+                    <option value="image">demo image (refraction on)</option>
+                </select>
+            </label>
+            <p class="note">Android feeds <code>setBackdropBitmap()</code> a blurred capture of the UI behind the
+                sphere. A web canvas cannot read the page, so the demo paints a canvas-sized scene inside the
+                canvas through <code>setBackdrop(source, dynamic)</code> — any image, <code>&lt;canvas&gt;</code> or
+                <code>&lt;video&gt;</code> works.</p>
+        </section>
+
+        <section class="group">
+            <h2>Performance &amp; debug</h2>
+            <label class="slider"><span>ribbon resolution <output id="renderScaleOut">75%</output></span>
+                <input type="range" id="renderScale" min="25" max="100" value="75"></label>
+            <label class="slider"><span>pixel ratio <output id="pixelRatioOut">≤2</output></span>
+                <input type="range" id="pixelRatio" min="1" max="3" step="0.5" value="2"></label>
+            <label class="slider"><span>frame cap</span>
+                <select id="maxFps">
+                    <option value="0">uncapped</option>
+                    <option value="30">30 fps</option>
+                    <option value="60" selected>60 fps</option>
+                    <option value="120">120 fps</option>
+                </select>
+            </label>
+            <label class="check"><input type="checkbox" id="gestures" checked> island gestures (double-tap / long-press)</label>
+            <label class="check"><input type="checkbox" id="debugGl"> log GL errors</label>
+        </section>
+
+        <section class="group">
+            <h2>Runtime</h2>
+            <div class="readout">
+                <span>state <b id="readState">IDLE</b></span>
+                <span>fps <b id="readFps">—</b></span>
+                <span>audio <b id="readAudio">0.00</b></span>
+                <span>GL <b id="readGl">RGBA16F</b></span>
+            </div>
+            <pre class="log" id="log"></pre>
+        </section>
+
+        <footer class="panel-foot">
+            <p>Shader embed <code id="shaderHash">—</code></p>
+            <p>API: <code>show()</code> <code>hide()</code> <code>setState()</code> <code>setAudioAmplitude()</code>
+                <code>setAudioFromRmsDb()</code> <code>setPalette()</code> <code>setIslandTransition()</code>
+                <code>setIslandPill()</code> <code>setBackdrop()</code> <code>dispose()</code> — see <code>web/README.md</code>.</p>
+        </footer>
+    </aside>
+</div>
+
+<!-- Development page: one classic script per module, in load order. The build step replaces
+     this list (between the markers) with a single <script src="sirisphere.js"></script>. -->
+<!-- siri:scripts:start -->
+    <script src="src/core.js"></script>
+    <script src="src/shaders.generated.js"></script>
+    <script src="src/state.js"></script>
+    <script src="src/palette.js"></script>
+    <script src="src/params.js"></script>
+    <script src="src/state-controller.js"></script>
+    <script src="src/gl-utils.js"></script>
+    <script src="src/backdrop.js"></script>
+    <script src="src/renderer.js"></script>
+    <script src="src/sphere.js"></script>
+    <script src="src/gestures.js"></script>
+    <script src="src/mic.js"></script>
+    <script src="demo/main.js"></script>
+    <!-- siri:scripts:end -->
+</body>
+</html>

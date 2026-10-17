@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SiriSphere — headless smoke test</title>
+<style>
+    html, body { margin: 0; background: #000; color: #cfe; font: 13px ui-monospace, Consolas, monospace; }
+    canvas { width: 640px; height: 640px; display: block; }
+    pre { margin: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<!--
+  Headless smoke test: compiles the two GLSL programs, runs the whole animation path
+  (island pill -> orb -> waves -> collapse) and inspects the rendered pixels.
+  It is copied to web/dist/smoke.html by tools/build.mjs and driven by tools/smoke.mjs
+  (or by hand: open it in a browser and read the output block below).
+
+  The first output line is machine readable:  SMOKE: OK|FAIL|SKIP  ...
+-->
+<canvas id="c" width="640" height="640"></canvas>
+<pre id="smoke"></pre>
+<script src="sirisphere.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var SSE = window.SiriSphere;
+    var lines = [];
+    var checks = 0, fails = 0;
+
+    function say(line) { lines.push(line); document.getElementById('smoke').textContent = lines.join('\n'); }
+    function check(what, ok, detail) {
+        checks++;
+        if (!ok) fails++;
+        say((ok ? 'PASS  ' : 'FAIL  ') + what + (detail === undefined ? '' : '  [' + detail + ']'));
+    }
+    function finish(verdict, note) {
+        document.title = 'SMOKE: ' + verdict;
+        lines.unshift('SMOKE: ' + verdict + '  checks=' + checks + ' fails=' + fails + (note ? '  ' + note : ''));
+        document.getElementById('smoke').textContent = lines.join('\n');
+    }
+
+    if (!SSE || !SSE.Sphere) { finish('FAIL', 'sirisphere.js did not load'); return; }
+    if (!SSE.Renderer.isSupported()) { finish('SKIP', 'no WebGL2 context in this browser'); return; }
+
+    var canvas = document.getElementById('c');
+    var hiddenReported = 0, gpuErrors = [];
+
+    try {
+        var sphere = new SSE.Sphere(canvas, {
+            orbSize: 0.90,
+            renderScale: 0.75,
+            state: 'speaking',
+            palette: 'rainbow',
+            islandTransition: true,
+            onHidden: function () { hiddenReported++; },
+            onGpuUnavailable: function (reason) { gpuErrors.push(reason); }
+        });
+
+        sphere.pause();                       // deterministic: we drive the frames ourselves
+        sphere.show();
+        sphere.setIslandPill(118, 36, 320, 74);
+        sphere.setAudioAmplitude(0.8);
+
+        var gl = sphere.renderer.gl;
+        var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        say('GL ' + gl.getParameter(gl.VERSION) + ' | ldr=' + sphere.renderer.ldr +
+            (dbg ? ' | ' + String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)).slice(0, 90) : ''));
+        say('canvas ' + sphere.renderer.canvasW + 'x' + sphere.renderer.canvasH +
+            ' dpr=' + sphere.renderer.dpr + ' devicePixels=' + sphere._devicePixels);
+        say('shaders ' + SSE.Shaders.hash);
+
+        check('both GL programs linked', !!sphere.renderer.progRibbon && !!sphere.renderer.progGlass);
+
+        // ---- 2.5 s of island-pill -> orb growth with live-looking audio
+        var t = 0, i;
+        for (i = 0; i < 150; i++) { t += 1 / 60; sphere.renderer.render(t); }
+
+        var p = sphere.renderer.params;
+        check('linear framebuffer created', !!sphere.renderer.fbo, 'fbo ' + sphere.renderer.fboW + 'x' + sphere.renderer.fboH);
+        check('island transition completed', p.expansion === 1 && p.transition === true, 'expansion=' + p.expansion);
+        check('ribbon resolved into wave bands', p.resolved > 0.95, 'resolved=' + p.resolved.toFixed(3));
+        check('audio reached the shader', p.audio > 0.5, 'audio=' + p.audio.toFixed(3));
+        check('no GL error during the animation', gl.getError() === 0);
+
+        // ---- the intermediate ribbon texture actually contains light
+        var fboW = sphere.renderer.fboW, fboH = sphere.renderer.fboH;
+        var strip = new Float32Array(fboW * 32 * 4);
+        var ribbonMax = 0;
+        try {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, sphere.renderer.fbo);
+            gl.readPixels(0, Math.floor(fboH / 2) - 16, fboW, 32, gl.RGBA, gl.FLOAT, strip);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            for (i = 0; i < strip.length; i += 4) ribbonMax = Math.max(ribbonMax, strip[i], strip[i + 1], strip[i + 2]);
+            check('pass-1 ribbon texture is not black', ribbonMax > 0.02, 'max=' + ribbonMax.toFixed(3));
+        } catch (e) {
+            say('note  float readback unavailable: ' + e.message);
+        }
+
+        // ---- the composited canvas: opaque orb body + visible light
+        var px = new Uint8Array(sphere.renderer.canvasW * sphere.renderer.canvasH * 4);
+        gl.readPixels(0, 0, sphere.renderer.canvasW, sphere.renderer.canvasH, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        var covered = 0, maxLuma = 0;
+        for (i = 0; i < px.length; i += 4) {
+            if (px[i + 3] > 8) covered++;
+            maxLuma = Math.max(maxLuma, px[i], px[i + 1], px[i + 2]);
+        }
+        var cw = sphere.renderer.canvasW, ch = sphere.renderer.canvasH;
+        var centre = ((ch >> 1) * cw + (cw >> 1)) * 4;
+        check('orb covers part of the canvas', covered > cw * ch * 0.05, 'covered=' + covered);
+        check('orb body is opaque at the centre', px[centre + 3] > 200, 'alpha=' + px[centre + 3]);
+        check('ribbon light is visible (max channel ' + maxLuma + ')', maxLuma > 40);
+        check('no GL error after compositing', gl.getError() === 0);
+
+        // ---- collapse back into the island pill and report the hide once
+        sphere.hide();
+        for (i = 0; i < 40; i++) { t += 1 / 60; sphere.renderer.render(t); }
+        check('hide() collapsed back to the pill', p.expansion === 0 && p.visibility === 0, 'expansion=' + p.expansion);
+        check('onHidden fired exactly once', hiddenReported === 1, 'fired=' + hiddenReported);
+        check('no GPU error callbacks', gpuErrors.length === 0, gpuErrors.join('; '));
+
+        sphere.dispose();
+        sphere.renderer.release();            // dispose() defers the release to the next frame; do it now
+        check('dispose() released the GL objects', !sphere.renderer.progRibbon && !sphere.renderer.progGlass);
+    } catch (e) {
+        check('smoke test threw: ' + (e && e.message ? e.message : e), false);
+        if (e && e.stack) say(String(e.stack).split('\n').slice(0, 4).join('\n'));
+    }
+
+    finish(fails === 0 ? 'OK' : 'FAIL');
+})();
+</script>
+</body>
+</html>

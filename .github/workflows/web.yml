@@ -1,0 +1,88 @@
+name: web
+
+# The web demo (web/) is a dependency-free static site: build -> test -> smoke -> deploy.
+# Deployment target: GitHub Pages ("Source: GitHub Actions"). The built site is also uploaded
+# as a downloadable workflow artifact, so it can be published anywhere else just as easily.
+on:
+    push:
+        branches: [main]
+        paths:
+            - '**'
+            - '.github/workflows/web.yml'
+        tags: ['v*']
+    pull_request:
+        paths:
+            - '**'
+            - '.github/workflows/web.yml'
+    workflow_dispatch:
+
+concurrency:
+    group: web-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    build:
+        name: build · test · smoke
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pages: write                 # needed by upload-pages-artifact / configure-pages
+            id-token: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+
+            - name: Shader embed matches the Android assets
+              run: node web/tools/sync-shaders.mjs --check
+
+            - name: Logic tests (state machine, palettes, gestures, params)
+              run: node web/tools/test.mjs
+
+            - name: Build web/dist
+              run: node web/tools/build.mjs --clean
+
+            - name: Headless WebGL smoke test (GLSL compile + two-pass render)
+              run: node web/tools/smoke.mjs --require-browser
+
+            - name: Upload the built site (downloadable artifact)
+              uses: actions/upload-artifact@v4
+              with:
+                  name: sirisphere-web
+                  path: web/dist
+                  if-no-files-found: error
+
+            - name: Configure GitHub Pages
+              if: github.event_name != 'pull_request'
+              uses: actions/configure-pages@v5
+              with:
+                  enablement: true         # turns Pages on with the "GitHub Actions" source if needed
+
+            - name: Upload the Pages artifact
+              if: github.event_name != 'pull_request'
+              uses: actions/upload-pages-artifact@v3
+              with:
+                  path: web/dist
+
+    deploy:
+        name: deploy · GitHub Pages
+        needs: build
+        if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        permissions:
+            pages: write
+            id-token: write
+        steps:
+            - name: Deploy web/dist to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v4
